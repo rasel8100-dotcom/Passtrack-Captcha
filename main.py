@@ -1,23 +1,28 @@
-from fastapi import FastAPI, UploadFile, File
-import cv2
-import numpy as np
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import base64
+import io
+from PIL import Image
 import pytesseract
 
 app = FastAPI()
 
-@app.get("/")
-def home():
-    return {"status": "OCR Engine Active"}
+class CaptchaRequest(BaseModel):
+    image: str
 
-@app.post("/solve")
-async def solve_captcha(file: UploadFile = File(...)):
-    contents = await file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
-    
-    # Noise Reduction & Thresholding
-    _, thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    
-    # OCR Read (Alphanumeric restrict)
-    text = pytesseract.image_to_string(thresh, config='--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789')
-    return {"captcha": text.replace(" ", "").strip()}
+@app.post("/api/solve")
+async def solve_captcha(req: CaptchaRequest):
+    try:
+        img_str = req.image
+        if "," in img_str:
+            img_str = img_str.split(",")[1]
+            
+        img_bytes = base64.b64decode(img_str)
+        image = Image.open(io.BytesIO(img_bytes)).convert("L") # Grayscale
+        
+        # OCR প্রসেসিং
+        text = pytesseract.image_to_string(image, config='--psm 6 -c tessedit_char_whitelist=0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ').strip()
+        
+        return {"captcha": text, "status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
