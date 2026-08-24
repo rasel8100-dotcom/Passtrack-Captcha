@@ -20,8 +20,11 @@ async def solve_captcha(req: CaptchaRequest):
         img_bytes = base64.b64decode(img_str)
         image = Image.open(io.BytesIO(img_bytes)).convert("L") # Grayscale
         
-        # OCR প্রসেসিং
-        text = pytesseract.image_to_string(image, config='--psm 6 -c tessedit_char_whitelist=0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ').strip()
+        # OCR প্রসেসিং অপ্টিমাইজড (PSM 8 ব্যবহার করা ভালো ছোট ক্যাপচার জন্য)
+text = pytesseract.image_to_string(
+    image, 
+    config='--oem 3 --psm 8 -c tessedit_char_whitelist=0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+).strip()
         
         return {"captcha": text, "status": "success"}
     except Exception as e:
